@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Team Prompt Builder — AIエージェントチーム指示書ジェネレーター</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2d3646;
+    --text:#e6edf3; --sub:#8b98a9; --accent:#4f8ff7; --accent2:#9a6ff7;
+    --ok:#3fb970; --chip:#22304a; --chip-on:#2b5cb8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:linear-gradient(160deg,#0d1117 0%,#101726 60%,#131022 100%); color:var(--text);
+    font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif; min-height:100vh; padding:24px 16px 64px;}
+  .wrap{max-width:860px; margin:0 auto;}
+  header{text-align:center; margin-bottom:28px;}
+  header h1{font-size:1.5rem; background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;}
+  header p{color:var(--sub); font-size:.9rem; margin-top:6px;}
+  .steps{display:flex; gap:6px; margin-bottom:24px;}
+  .steps div{flex:1; height:6px; border-radius:3px; background:var(--border); transition:.3s;}
+  .steps div.on{background:linear-gradient(90deg,var(--accent),var(--accent2));}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:26px; box-shadow:0 8px 30px rgba(0,0,0,.35);}
+  .card h2{font-size:1.15rem; margin-bottom:6px;}
+  .card .lead{color:var(--sub); font-size:.9rem; margin-bottom:20px; line-height:1.6;}
+  label.q{display:block; font-weight:600; margin:22px 0 4px; font-size:.95rem;}
+  label.q:first-of-type{margin-top:0;}
+  .hint{color:var(--sub); font-size:.8rem; margin-bottom:8px; line-height:1.5;}
+  textarea,input[type=text]{width:100%; background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:10px 12px; font-size:.95rem; font-family:inherit; resize:vertical;}
+  textarea:focus,input:focus{outline:none; border-color:var(--accent);}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin:8px 0;}
+  .chip{background:var(--chip); border:1px solid var(--border); color:var(--text); border-radius:999px;
+    padding:7px 14px; font-size:.85rem; cursor:pointer; transition:.15s; user-select:none;}
+  .chip:hover{border-color:var(--accent);}
+  .chip.on{background:var(--chip-on); border-color:var(--accent); font-weight:600;}
+  .cards-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; margin-top:12px;}
+  .cat{background:var(--panel2); border:2px solid var(--border); border-radius:12px; padding:16px; cursor:pointer; transition:.15s;}
+  .cat:hover{border-color:var(--accent);}
+  .cat.on{border-color:var(--accent); background:#1d2c47;}
+  .cat .icon{font-size:1.5rem;}
+  .cat h3{font-size:.95rem; margin:8px 0 4px;}
+  .cat p{color:var(--sub); font-size:.78rem; line-height:1.5;}
+  .nav{display:flex; justify-content:space-between; margin-top:26px;}
+  button{border:none; border-radius:9px; padding:11px 24px; font-size:.95rem; font-weight:600; cursor:pointer; font-family:inherit; transition:.15s;}
+  .btn-next{background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#fff;}
+  .btn-next:hover{filter:brightness(1.15);}
+  .btn-next:disabled{opacity:.4; cursor:not-allowed;}
+  .btn-back{background:var(--panel2); color:var(--sub); border:1px solid var(--border);}
+  .btn-back:hover{color:var(--text);}
+  .btn-sm{padding:6px 14px; font-size:.8rem;}
+  .role{background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:12px;}
+  .role .row{display:flex; gap:10px; align-items:center; margin-bottom:8px;}
+  .role input{flex:1; font-weight:600;}
+  .role textarea{font-size:.85rem; min-height:52px;}
+  .role .del{background:none; border:1px solid var(--border); color:var(--sub); border-radius:8px; padding:6px 12px; font-size:.8rem;}
+  .role .del:hover{color:#f77; border-color:#f77;}
+  .role.locked{border-color:#3f5f45;}
+  .badge{font-size:.7rem; background:#234631; color:#7fd89a; border-radius:999px; padding:3px 10px; white-space:nowrap;}
+  .badge.w{background:#2b3a55; color:#9dbcf5;}
+  pre{background:#0b0f16; border:1px solid var(--border); border-radius:10px; padding:18px;
+    font-size:.82rem; line-height:1.65; white-space:pre-wrap; word-break:break-word; max-height:480px; overflow:auto;
+    font-family:"SFMono-Regular",Consolas,"Noto Sans Mono",monospace;}
+  .result-actions{display:flex; gap:10px; margin:16px 0;}
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ok); color:#fff;
+    padding:10px 22px; border-radius:999px; font-size:.9rem; opacity:0; transition:.3s; pointer-events:none;}
+  .toast.show{opacity:1;}
+  .radio-group{display:flex; flex-direction:column; gap:8px; margin-top:8px;}
+  .radio-item{display:flex; gap:10px; align-items:flex-start; background:var(--panel2); border:1px solid var(--border);
+    border-radius:10px; padding:12px 14px; cursor:pointer; transition:.15s;}
+  .radio-item:hover{border-color:var(--accent);}
+  .radio-item.on{border-color:var(--accent); background:#1d2c47;}
+  .radio-item b{font-size:.9rem;}
+  .radio-item span{display:block; color:var(--sub); font-size:.78rem; margin-top:2px; line-height:1.5;}
+  .note{background:#1b2438; border-left:3px solid var(--accent); border-radius:6px; padding:10px 14px;
+    font-size:.82rem; color:var(--sub); line-height:1.6; margin-top:16px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🤖 Agent Team Prompt Builder</h1>
+    <p>あなたの「こんなことしたい」を深掘りして、AIエージェントチームを起動する指示書に変換します</p>
+  </header>
+  <div class="steps" id="stepbar"></div>
+  <div class="card" id="stage"></div>
+</div>
+<div class="toast" id="toast">コピーしました</div>
+
+<script>
+"use strict";
+/* ============ データ定義 ============ */
+const CATS = {
+  company:  {icon:"🏢", name:"会社運営・AI組織", desc:"複数部門のAIエージェントを常設して事業を継続運営する"},
+  dev:      {icon:"💻", name:"アプリ・システム開発", desc:"Webアプリ、ツール、スクリプトなどソフトウェアを作る"},
+  auto:     {icon:"⚙️", name:"業務自動化", desc:"定期実行、通知、データ収集などの自動化の仕組みを作る"},
+  research: {icon:"🔍", name:"リサーチ・レポート", desc:"調査・分析して報告書やまとめ資料を作る"},
+  biz:      {icon:"📈", name:"ビジネスプラン・企画", desc:"事業計画、企画書、戦略の立案"},
+  content:  {icon:"✍️", name:"コンテンツ制作", desc:"記事、資料、動画台本などの制作物を作る"},
+  other:    {icon:"🧩", name:"その他", desc:"上記に当てはまらない複雑なタスク"}
+};
+
+const CAT_KEYWORDS = {
+  company:["会社","経営","組織","部門","総務","人事","経理","運営","社長","法人","雇"],
+  dev:["アプリ","システム","開発","ツール","サイト","web","Web","ソフト","ゲーム","プログラム"],
+  auto:["自動","毎日","毎週","定期","通知","スクレイピング","収集","連携","bot","Bot","LINE","メール"],
+  research:["調査","リサーチ","分析","レポート","調べ","比較","まとめ"],
+  biz:["ビジネス","事業","企画","プラン","戦略","マーケ","収益","起業"],
+  content:["記事","ブログ","動画","台本","コンテンツ","資料","プレゼン","小説","文章"]
+};
+
+/* 成果物チップ（カテゴリ別） */
+const DELIVERABLES = {
+  company:["常設の業務運営体制","週次経営レポート","業務マニュアル/ルールファイル","経営ダッシュボード"],
+  dev:["動くWebアプリ(HTML)","Pythonスクリプト","デスクトップアプリ","スマホ向けアプリ","API/バックエンド"],
+  auto:["定期実行スクリプト","通知の仕組み","データ収集パイプライン","ダッシュボード"],
+  research:["調査レポート(文書)","比較表(スプレッドシート)","プレゼン資料","要約メモ"],
+  biz:["事業計画書","企画書(1枚)","ピッチ資料","収支シミュレーション"],
+  content:["ブログ記事","プレゼン資料","動画台本","SNS投稿セット","電子書籍/長文原稿"],
+  other:["文書","スプレッドシート","プレゼン資料","動くプログラム"]
+};
+
+/* カテゴリ固有の深掘り質問 */
+const CAT_QUESTIONS = {
+  company:[
+    {id:"business", label:"どんな事業・活動を運営しますか？", hint:"扱う商品・サービス、収益源、現在のフェーズ（構想中/運営中）など", chips:[], free:"例：ハンドメイド雑貨のEC運営。月商30万円、SNS集客が中心…", ta:true},
+    {id:"depts", label:"AIに任せたい業務領域は？", hint:"選んだ領域に対応する部門エージェントが編成されます（複数選択可）", chips:["リサーチ・市場分析","マーケ・SNS発信","営業・顧客対応","経理・請求管理","総務・文書/スケジュール管理","法務・契約チェック","開発・制作"], free:"その他の業務"},
+    {id:"cadence", label:"報告のリズムは？", hint:"経営者としてどの頻度で報告を受けたいか", chips:["毎日サマリー","週次レポート","都度報告のみ"], free:"その他"}
+  ],
+  dev:[
+    {id:"platform", label:"どこで動かしたいですか？", hint:"例えばこんな選択肢はどうですか？", chips:["ブラウザ","自分のPC","スマホ","サーバー(常時稼働)","まだ決めていない"], free:"その他・補足"},
+    {id:"features", label:"絶対に欲しい機能を3つまで挙げると？", hint:"「これがないと意味がない」というコア機能。迷ったら思いつくまま書いてOK", chips:[], free:"例：データの保存、検索機能、通知…", ta:true}
+  ],
+  auto:[
+    {id:"trigger", label:"いつ・何をきっかけに動きますか？", hint:"実行のタイミングやトリガー", chips:["毎日決まった時刻","毎週","1時間ごと","何かが起きたとき","手動で実行"], free:"具体的な時刻・条件など"},
+    {id:"services", label:"連携したいサービス・情報源は？", hint:"データの取得元と通知先", chips:["特定のWebサイト","LINE","メール","Slack","スプレッドシート","SNS"], free:"サイト名・サービス名など"}
+  ],
+  research:[
+    {id:"scope", label:"調査の範囲・対象は？", hint:"広すぎると浅くなります。絞れるところは絞りましょう", chips:["国内のみ","海外含む","直近1年の情報","過去の経緯も含む"], free:"対象の業界・テーマ・地域など", ta:true},
+    {id:"sources", label:"重視したい情報源は？", chips:["公式統計・一次情報","ニュース記事","論文・専門資料","SNS・口コミ","競合の公開情報"], free:"その他"}
+  ],
+  biz:[
+    {id:"market", label:"想定する顧客・市場は？", hint:"「誰のどんな困りごとにお金を払ってもらうか」", chips:[], free:"例：30代共働き世帯の食事準備の負担…", ta:true},
+    {id:"hypothesis", label:"一番検証したい仮説・不安は？", hint:"プランの中で「ここが崩れたら全部崩れる」という部分", chips:["需要があるか","競合に勝てるか","収益が成り立つか","実現可能か"], free:"具体的に"}
+  ],
+  content:[
+    {id:"medium", label:"媒体・形式は？", chips:["ブログ/Web記事","YouTube","X(Twitter)","Instagram","社内資料","印刷物"], free:"その他・文字数や長さの目安"},
+    {id:"tone", label:"トーン・雰囲気は？", chips:["専門的・信頼感","親しみやすい","面白い・エンタメ","高級感","シンプル・実用的"], free:"参考にしたい例など"}
+  ],
+  other:[
+    {id:"focus", label:"特に重視するポイントは？", chips:["スピード","品質・正確さ","独創性","コスト","わかりやすさ"], free:"補足"}
+  ]
+};
+
+/* チーム編成プリセット [役割名, ミッション, 検査役フラグ] */
+const TEAMS = {
+  company:[
+    ["経営企画（COO補佐）", "全社の優先順位を整理し、各部門への目標とタスクを展開する。定例の経営サマリーの原案を作成する。"],
+    ["リサーチ・市場分析部門", "市場・競合・顧客の調査分析。広く探索してから絞り込み、全ての報告に出典を明記する。"],
+    ["マーケティング・広報部門", "集客・発信コンテンツ（SNS/ブログ/広告文）の企画と制作。公開は必ず人間の承認後に行う前提で「公開案」まで仕上げる。"],
+    ["営業・顧客対応部門", "リード対応・問い合わせ返信・提案書の文面を起案する。送信は人間の承認後に行う前提で「送信案」まで仕上げる。"],
+    ["経理・財務部門", "収支の記録整理、請求書・見積書の下書き、資金繰りシミュレーション。数字の前提と計算根拠を必ず明記する。"],
+    ["総務・人事部門", "スケジュール・文書・ナレッジの整理整頓。業務マニュアルとルールファイルを整備・更新し、各部門エージェントの働きぶりの改善点を記録する。"],
+    ["法務・コンプライアンス監査", "契約・発信内容・個人情報の扱いに法的リスクや炎上リスクがないかチェックし、問題があれば差し止めて代替案を示す。", true],
+    ["品質監査（CQO）", "全部門の成果物を品質ルーブリックで採点・検証し、合格基準を満たすまで差し戻す。実行部門からは完全に独立した立場を保つ。", true]
+  ],
+  dev:[
+    ["アーキテクト", "要件を整理し、全体設計・技術選定・ファイル構成を決定する。着手前に設計方針をマネージャーに提出する。"],
+    ["UI/UX実装担当", "画面まわりの設計と実装。使いやすさと見た目の完成度に責任を持つ。"],
+    ["ロジック実装担当", "コア機能・データ処理の実装。エッジケース（空入力、異常値）も考慮する。"],
+    ["QAテスター", "完成物を批判的にテストし、バグ・使いにくさ・要件漏れを重箱の隅までレポートする。合格基準を満たすまで承認しない。", true]
+  ],
+  auto:[
+    ["情報収集担当", "データ取得部分（スクレイピング/API連携）の設計と実装。取得失敗時のリトライも考慮する。"],
+    ["処理ロジック担当", "取得データの加工・要約・整形の実装。"],
+    ["連携・通知担当", "外部サービス（通知先）との接続部分の実装。認証情報の安全な扱いに責任を持つ。"],
+    ["QAテスター兼セキュリティ監査", "動作テストに加え、APIキー漏洩・過剰アクセスなどのリスクを厳しくチェックする。", true]
+  ],
+  research:[
+    ["リサーチャーA（推進派視点）", "テーマに対して肯定的な材料・機会・成功事例を収集する。出典を必ず記録する。"],
+    ["リサーチャーB（懐疑派視点）", "リスク・反証・失敗事例・反対意見を収集する。出典を必ず記録する。"],
+    ["アナリスト", "両者の材料を統合・比較分析し、構造化された示唆を導く。"],
+    ["ファクトチェッカー兼編集者", "全ての事実主張の出典を検証し、文章を読みやすく編集する。根拠の弱い記述は削除または明示させる。", true]
+  ],
+  biz:[
+    ["市場分析担当", "市場規模・顧客セグメント・競合の調査分析。"],
+    ["戦略立案担当", "ポジショニング・提供価値・実行計画の設計。"],
+    ["財務担当", "収支モデル・必要コスト・損益分岐のシミュレーション。数字の前提を必ず明記する。"],
+    ["悪魔の代弁者（批判的レビュアー）", "プラン全体を投資家の視点で徹底的に批判し、致命的な穴を指摘する。指摘が解消されるまで承認しない。", true]
+  ],
+  content:[
+    ["構成作家", "ターゲットと目的から逆算して、全体構成・見出し・流れを設計する。"],
+    ["ライター", "構成に沿って本文を執筆する。指定されたトーンを厳守する。"],
+    ["編集者兼校閲", "誤字脱字・事実誤認・トーンのブレ・冗長さを厳しくチェックし、修正指示を出す。合格まで差し戻す。", true]
+  ],
+  other:[
+    ["計画・分解担当", "タスクを分析し、実行可能な小タスクに分解して計画を立てる。"],
+    ["実行担当", "計画に沿って中核の作業を実行する。"],
+    ["批判的レビュアー", "成果物を批判的に検証し、品質基準を満たすまで差し戻す。作る側とは独立した立場を保つ。", true]
+  ]
+};
+
+const ENVS = [
+  {id:"claude", name:"Claude Code / Cowork", desc:"サブエージェント（Task機能）が実際に並列で動く環境", line:"この環境ではサブエージェント機能（Task/Agentツール）が利用できます。独立して進められる作業は必ずサブエージェントに委譲し、並列実行してください。"},
+  {id:"codex", name:"OpenAI Codex", desc:"OpenAIのコーディングエージェント環境", line:"利用可能なタスク分割・委譲機能があれば活用してください。ない場合は、各専門家の役割を明示的に宣言してから、その役割になりきって順番に作業してください。"},
+  {id:"antigravity", name:"Google Antigravity", desc:"Googleのエージェント開発環境", line:"利用可能なエージェント委譲・並列実行機能があれば活用してください。ない場合は、各専門家の役割を明示的に宣言してから、その役割になりきって順番に作業してください。"},
+  {id:"generic", name:"汎用（どのAIでも）", desc:"ChatGPT、Claude.ai、Geminiなど通常のチャットAIでも動く形", line:"サブエージェント機能がある環境ではそれを活用してください。ない場合は「【○○としての作業】」と役割を宣言してから、その専門家になりきって順番に作業し、役割ごとに視点を完全に切り替えてください。"}
+];
+
+const CONSTRAINT_CHIPS = ["有料API・有料サービスは使わない","成果物は1ファイルにまとめる","個人情報・機密情報を扱わない","日本語で作成する","無料で運用できる構成にする"];
+
+/* ============ 状態 ============ */
+const state = {
+  step:0, idea:"", cat:null,
+  answers:{},          // {qid: {chips:[], free:""}}
+  deliverable:{chips:[],free:""},
+  audience:"", success:"",
+  constraints:{chips:[],free:""},
+  autonomy:"checkpoint",
+  team:[],             // [{name,mission,locked}]
+  env:"claude", title:""
+};
+const STEP_NAMES = ["構想","カテゴリ","深掘り","チーム編成","仕上げ","完成"];
+
+/* ============ ユーティリティ ============ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function chipsHtml(list, selected, group){
+  return '<div class="chips">' + list.map(c =>
+    `<div class="chip ${selected.includes(c)?"on":""}" onclick="toggleChip('${group}','${esc(c).replace(/'/g,"\\'")}')">${esc(c)}</div>`
+  ).join("") + '</div>';
+}
+window.toggleChip = function(group, val){
+  let target;
+  if(group === "deliv") target = state.deliverable;
+  else if(group === "cons") target = state.constraints;
+  else { state.answers[group] = state.answers[group] || {chips:[],free:""}; target = state.answers[group]; }
+  const i = target.chips.indexOf(val);
+  i >= 0 ? target.chips.splice(i,1) : target.chips.push(val);
+  render();
+};
+
+function guessCat(text){
+  let best = "other", bestN = 0;
+  for(const [cat,kws] of Object.entries(CAT_KEYWORDS)){
+    const n = kws.filter(k => text.includes(k)).length;
+    if(n > bestN){ best = cat; bestN = n; }
+  }
+  return best;
+}
+
+/* ============ 画面描画 ============ */
+function render(){
+  $("#stepbar").innerHTML = STEP_NAMES.map((_,i)=>`<div class="${i<=state.step?"on":""}" title="${STEP_NAMES[i]}"></div>`).join("");
+  const fn = [step0,step1,step2,step3,step4,step5][state.step];
+  $("#stage").innerHTML = fn();
+  const ta = $("#stage textarea, #stage input[type=text]");
+  if(state.step===0 && ta) ta.focus();
+}
+
+/* --- Step 0: 構想入力 --- */
+function step0(){
+  return `
+    <h2>💡 まず、やりたいことを教えてください</h2>
+    <p class="lead">完璧な説明は不要です。「こんなことができたらいいな」レベルでOK。<br>ここから質問を重ねて、一緒に具体化していきます。</p>
+    <textarea id="idea" rows="5" placeholder="例：毎朝テクノロジー系のニュースを集めて要約してLINEに通知してくれる仕組みを作りたい">${esc(state.idea)}</textarea>
+    <div class="note">💬 このアプリはあなたの構想に対して「こんなことはどうですか？」という質問を段階的に投げかけ、最終的に<b>AIエージェントチーム（マネージャー＋専門家サブエージェント）を起動する指示書</b>を生成します。</div>
+    <div class="nav"><span></span><button class="btn-next" onclick="next0()">深掘りを始める →</button></div>`;
+}
+window.next0 = function(){
+  const v = $("#idea").value.trim();
+  if(!v){ $("#idea").style.borderColor = "#f77"; return; }
+  state.idea = v;
+  if(!state.cat) state.cat = guessCat(v);
+  state.step = 1; render();
+};
+
+/* --- Step 1: カテゴリ --- */
+function step1(){
+  return `
+    <h2>🗂 これはどんな種類のタスクですか？</h2>
+    <p class="lead">構想から「<b>${CATS[state.cat].name}</b>」と推測しました。違っていたら選び直してください。<br>カテゴリによって質問内容とチーム編成が変わります。</p>
+    <div class="cards-grid">${Object.entries(CATS).map(([id,c])=>`
+      <div class="cat ${state.cat===id?"on":""}" onclick="pickCat('${id}')">
+        <div class="icon">${c.icon}</div><h3>${c.name}</h3><p>${c.desc}</p>
+      </div>`).join("")}
+    </div>
+    <div class="nav">
+      <button class="btn-back" onclick="go(0)">← 戻る</button>
+      <button class="btn-next" onclick="goDeep()">次へ →</button>
+    </div>`;
+}
+window.pickCat = function(id){ state.cat = id; render(); };
+window.goDeep = function(){
+  if(state.team.length === 0) state.team = TEAMS[state.cat].map(r=>({name:r[0], mission:r[1], locked:!!r[2]}));
+  state.step = 2; render();
+};
+window.go = function(n){ state.step = n; render(); };
+
+/* --- Step 2: 深掘り質問 --- */
+function questionBlock(q){
+  const a = state.answers[q.id] || {chips:[],free:""};
+  return `
+    <label class="q">${esc(q.label)}</label>
+    ${q.hint?`<div class="hint">${esc(q.hint)}</div>`:""}
+    ${q.chips.length?chipsHtml(q.chips,a.chips,q.id):""}
+    ${q.ta
+      ?`<textarea rows="2" placeholder="${esc(q.free)}" oninput="setFree('${q.id}',this.value)">${esc(a.free)}</textarea>`
+      :`<input type="text" placeholder="${esc(q.free)}" value="${esc(a.free)}" oninput="setFree('${q.id}',this.value)">`}`;
+}
+window.setFree = function(id,v){
+  state.answers[id] = state.answers[id] || {chips:[],free:""};
+  state.answers[id].free = v;
+};
+function step2(){
+  return `
+    <h2>🔍 構想を深掘りします</h2>
+    <p class="lead">答えられる範囲でOK。空欄の項目は、エージェントチームが作業開始前にあなたに確認するよう指示書に組み込まれます。</p>
+
+    <label class="q">最終的に何が手に入れば成功ですか？（成果物）</label>
+    <div class="hint">こんな形はどうですか？（複数選択可）</div>
+    ${chipsHtml(DELIVERABLES[state.cat], state.deliverable.chips, "deliv")}
+    <input type="text" placeholder="その他・具体的な補足" value="${esc(state.deliverable.free)}" oninput="state.deliverable.free=this.value">
+
+    <label class="q">それは誰が使いますか？／誰のためのものですか？</label>
+    <div class="hint">自分専用か、家族か、顧客か、不特定多数か。これで品質基準が大きく変わります</div>
+    <input type="text" placeholder="例：自分専用 / 社内チーム10人 / 一般公開" value="${esc(state.audience)}" oninput="state.audience=this.value">
+
+    ${CAT_QUESTIONS[state.cat].map(questionBlock).join("")}
+
+    <label class="q">「これができていたら合格」という基準は？</label>
+    <div class="hint">完成の定義。曖昧なままだとエージェントは適当なところで切り上げます</div>
+    <input type="text" placeholder="例：3日間連続でエラーなく朝8時に通知が届くこと" value="${esc(state.success)}" oninput="state.success=this.value">
+
+    <label class="q">やってはいけないこと・制約は？</label>
+    <div class="hint">禁止事項を先に明文化するとAIの暴走を防げます（複数選択可）</div>
+    ${chipsHtml(CONSTRAINT_CHIPS, state.constraints.chips, "cons")}
+    <input type="text" placeholder="その他の制約（例：Pythonのみ使用、予算月500円まで）" value="${esc(state.constraints.free)}" oninput="state.constraints.free=this.value">
+
+    <label class="q">エージェントチームの進め方は？</label>
+    <div class="radio-group">
+      <div class="radio-item ${state.autonomy==='checkpoint'?'on':''}" onclick="state.autonomy='checkpoint';render()">
+        <div><b>🚩 節目ごとに確認してほしい</b><span>計画時・中間成果物・完成時にあなたの承認を求めます。方向のズレを早期に修正できます（推奨）</span></div>
+      </div>
+      <div class="radio-item ${state.autonomy==='auto'?'on':''}" onclick="state.autonomy='auto';render()">
+        <div><b>🚀 最後まで全自動で進めてほしい</b><span>完成まで一気に走ります。速いですが、意図とズレたまま完成するリスクがあります</span></div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <button class="btn-back" onclick="go(1)">← 戻る</button>
+      <button class="btn-next" onclick="go(3)">チーム編成へ →</button>
+    </div>`;
+}
+
+/* --- Step 3: チーム編成 --- */
+function step3(){
+  return `
+    <h2>👥 エージェントチームを編成します</h2>
+    <p class="lead">タスクに合わせた専門家チームを提案しました。役割名・ミッションは自由に編集できます。<br><b>「作る人」と「検査する人」は必ず分ける</b>のが鉄則です。レビュアー役は残すことを推奨します。</p>
+    ${state.team.map((r,i)=>`
+      <div class="role ${r.locked?"locked":""}">
+        <div class="row">
+          <input type="text" value="${esc(r.name)}" oninput="state.team[${i}].name=this.value">
+          <span class="badge ${r.locked?"":"w"}">${r.locked?"🔎 検査役":"🛠 実行役"}</span>
+          <button class="del" onclick="delRole(${i})">削除</button>
+        </div>
+        <textarea oninput="state.team[${i}].mission=this.value">${esc(r.mission)}</textarea>
+      </div>`).join("")}
+    <button class="btn-back btn-sm" onclick="addRole()">＋ 専門家を追加</button>
+    ${state.team.some(r=>r.locked)?"":'<div class="note">⚠️ 検査役（レビュアー/テスター）がいません。作った本人はミスに気づきにくいため、独立した検査役を置くことを強く推奨します。</div>'}
+    <div class="nav">
+      <button class="btn-back" onclick="go(2)">← 戻る</button>
+      <button class="btn-next" onclick="go(4)">仕上げへ →</button>
+    </div>`;
+}
+window.delRole = function(i){ state.team.splice(i,1); render(); };
+window.addRole = function(){ state.team.push({name:"新しい専門家", mission:"担当する仕事の内容を書いてください。", locked:false}); render(); };
+
+/* --- Step 4: 実行環境・タイトル --- */
+function step4(){
+  return `
+    <h2>🎛 仕上げの設定</h2>
+    <label class="q">プロジェクト名（指示書のタイトルになります）</label>
+    <input type="text" placeholder="例：朝ニュース自動通知システム開発" value="${esc(state.title)}" oninput="state.title=this.value">
+    <label class="q">この指示書をどのAIエージェントに渡しますか？</label>
+    <div class="hint">環境に合わせて「サブエージェントの動かし方」の指示文を最適化します</div>
+    <div class="radio-group">
+      ${ENVS.map(e=>`
+        <div class="radio-item ${state.env===e.id?"on":""}" onclick="state.env='${e.id}';render()">
+          <div><b>${e.name}</b><span>${e.desc}</span></div>
+        </div>`).join("")}
+    </div>
+    <div class="nav">
+      <button class="btn-back" onclick="go(3)">← 戻る</button>
+      <button class="btn-next" onclick="go(5)">🎉 指示書を生成する</button>
+    </div>`;
+}
+
+/* ============ プロンプト生成 ============ */
+function joinAns(a){
+  if(!a) return "";
+  const parts = [...(a.chips||[])];
+  if(a.free && a.free.trim()) parts.push(a.free.trim());
+  return parts.join("、");
+}
+function buildPrompt(){
+  const env = ENVS.find(e=>e.id===state.env);
+  const title = state.title.trim() || (CATS[state.cat].name + "プロジェクト");
+  const deliv = joinAns(state.deliverable);
+  const cons = joinAns(state.constraints);
+  const unknowns = [];
+  if(!deliv) unknowns.push("最終成果物の具体的な形式");
+  if(!state.audience.trim()) unknowns.push("利用者・対象者");
+  if(!state.success.trim()) unknowns.push("完成・合格の基準");
+  CAT_QUESTIONS[state.cat].forEach(q=>{ if(!joinAns(state.answers[q.id])) unknowns.push(q.label.replace(/[？?]$/,"")); });
+
+  const catQA = CAT_QUESTIONS[state.cat]
+    .map(q=>({q:q.label, a:joinAns(state.answers[q.id])}))
+    .filter(x=>x.a)
+    .map(x=>`- ${x.q.replace(/[？?]$/,"")}：${x.a}`).join("\n");
+
+  const workers = state.team.filter(r=>!r.locked);
+  const reviewers = state.team.filter(r=>r.locked);
+
+  const process = state.autonomy === "checkpoint" ? `1. **計画**：タスクを分解し、担当割り当て・依存関係・並列可能な箇所を含む作業計画を \`PLAN.md\` に保存し、**着手前に私に提示して承認を得る**。
+2. **実行**：承認後、委譲プロトコルに従って各専門家に指示書を渡す。独立した作業は並列実行、依存のある作業は順序厳守。
+3. **統合**：各専門家の成果物ファイルを回収し、あなたが一貫性を保って統合する。中間成果物ができた時点で私に共有する。
+4. **検証**：統合した成果物を検査役に渡し、品質ルーブリックに基づくレビューレポートを作成させる。
+5. **改善ループ**：不合格項目は該当の専門家に修正指示を出し、**検査役が合格を出すまで**繰り返す（上限はガードレール参照）。
+6. **完了報告**：成果物一式＋「何をどう作ったか」「検証結果」「既知の制限事項」「次の改善提案」を私に報告する。` : `1. **計画**：タスクを分解し、担当割り当て・依存関係・並列可能な箇所を含む作業計画を \`PLAN.md\` に保存する。
+2. **実行**：委譲プロトコルに従って各専門家に指示書を渡す。独立した作業は並列実行、依存のある作業は順序厳守。
+3. **統合**：各専門家の成果物ファイルを回収し、あなたが一貫性を保って統合する。
+4. **検証**：統合した成果物を検査役に渡し、品質ルーブリックに基づくレビューレポートを作成させる。
+5. **改善ループ**：不合格項目は該当の専門家に修正指示を出し、**検査役が合格を出すまで**繰り返す（上限はガードレール参照）。
+6. **完了報告**：成果物一式＋「何をどう作ったか」「検証結果」「既知の制限事項」「次の改善提案」を私に報告する。途中確認は不要、ガードレールの範囲で最後まで自律的に完走すること。`;
+
+  const researchPolicy = state.cat === "research" ? `
+
+## 調査ポリシー
+- **広く始めて絞り込む**：最初は短く広いクエリで全体像を把握し、有望な領域に段階的に絞り込むこと
+- **情報源の格付け**：一次情報（公式統計・原典・当事者発表）＞専門メディア・論文＞一般記事＞SEO目的のまとめ記事。低品質な情報源に依存しないこと
+- **出典必須**：全ての事実主張に出典（URL・発行日）を付けること。出典のない主張は「推測」と明記する
+- **反証も探す**：都合の良い情報だけを集めず、反対の証拠も必ず探すこと` : "";
+
+  const cadence = joinAns(state.answers.cadence) || "週次レポート";
+  const companyOps = state.cat === "company" ? `
+
+## 会社運営モード（常設組織）
+これは単発プロジェクトではなく、**継続的に運営する組織**である。
+- **定例報告**：「${cadence}」のリズムで、①完了したこと ②進行中のこと ③要判断事項（選択肢つき） ④発生した・予定される支出、の4点を私に報告すること
+- **承認ゲート**：支出、対外的な発信・送信、契約・法的判断に関わるものは「実行案」の状態で必ず止め、私の承認を待つこと。承認待ちで他の作業を止めない
+- **業務マニュアルの整備**：総務・人事部門に各部門の手順・判断基準・品質基準を文書化させ、全部門がそれを参照してから作業する運用にすること。マニュアルは実際の失敗と成功から継続的に更新する
+- **組織の増減提案**：業務量に応じて部門エージェントの新設・統廃合をあなたから提案してよい。ただし実施は私の承認後
+- **経営者の役割分担**：私は戦略・最終判断・対外関係を担う。あなたと部門は実行と提案を担う。私の判断が必要な事項を溜め込まず、都度リストで挙げること` : "";
+
+  return `# ミッション指示書：${title}
+
+## あなたの役割
+あなたはこのプロジェクトの**統括マネージャー（オーケストレーター）**です。私（依頼主）と対話する窓口はあなた一人です。あなた自身は実作業を極力行わず、**計画・委譲・統合・品質管理**に徹してください。以下に定義する専門家サブエージェントチームを編成・指揮し、最高品質の成果物を完成させてください。
+
+## 動作モード
+${env.line}
+
+## 背景とゴール
+${state.idea}
+${state.audience.trim() ? `\n**利用者・対象**：${state.audience.trim()}` : ""}
+${deliv ? `**最終成果物**：${deliv}` : ""}
+${state.success.trim() ? `**完成・合格の基準**：${state.success.trim()}` : ""}
+${catQA ? `\n### 詳細要件\n${catQA}` : ""}
+
+## チーム編成
+以下の専門家サブエージェントを定義し、タスクを分担させてください。
+
+### 実行役（作る人）
+${workers.map((r,i)=>`${i+1}. **${r.name}**：${r.mission}`).join("\n")}
+
+### 検査役（検証する人）※実行役からは独立させること
+${reviewers.length ? reviewers.map((r,i)=>`${i+1}. **${r.name}**：${r.mission}`).join("\n") : "（検査役未設定。あなたの判断で批判的レビュアーを1名追加して構いません）"}
+
+**重要**：作った本人に自己検証させないこと。検査役は常に批判的・独立の立場を保ち、忖度なくレビューさせること。
+
+## 委譲プロトコル（最重要）
+サブエージェントへ仕事を渡すときは、必ず次の5点を明示した「作業指示書」を渡すこと。曖昧な一行指示（「〇〇を調べて」等）での委譲は禁止。これを怠ると作業の重複・抜け漏れ・手戻りが発生する。
+1. **目的と背景**：なぜこの作業が必要か、全体のどこに位置するか
+2. **期待する成果物と形式**：ファイル名・構成・分量まで具体的に
+3. **使うべきツール・情報源**と、使ってはいけないもの
+4. **担当範囲の境界**：他の担当と重複しない明確な線引き
+5. **工数の上限**：この範囲で最善を尽くし、超えそうなら途中で報告
+
+## リソース配分ルール
+タスクの複雑さに規模を合わせること。単純な作業は1エージェント（ツール呼び出し3〜10回程度）、比較・検討は2〜4エージェント、真に複雑な場合のみそれ以上。**不必要にエージェントを増やさない**。人数を増やすより、一人ひとりへの指示の質を上げるほうが効果的である。
+
+## 成果物の受け渡しルール
+- 各サブエージェントの成果物は**ファイルとして保存**させ、あなたには「要約＋ファイル参照」だけを返させること（又聞きの繰り返しによる情報劣化を防ぐ）
+- 作業ディレクトリの構成（どこに何を置くか）を計画段階で決め、全員に共有すること
+
+## 実行プロセス
+${process}
+
+## 品質検証ルーブリック
+検査役は以下の5項目を各10点満点で採点し、**合否（40点以上かつ致命的欠陥ゼロで合格）**を判定すること。
+| 項目 | 基準 |
+|---|---|
+| 要件適合 | 背景とゴール・詳細要件を満たしているか |
+| 正確性 | 事実・計算・動作に誤りがないか |
+| 根拠 | 主張に出典・再現手順が添えられているか |
+| 網羅性 | 抜け漏れ・考慮不足がないか |
+| 明瞭さ | 無駄がなく、対象者にとって分かりやすいか |
+
+指摘には必ず「**どこが・なぜダメか・どう直すべきか**」の3点を添えること。
+
+## ガードレール（暴走防止）
+- 改善ループは**最大3周**まで。合格に至らない場合は、状況・原因・選択肢を整理して私にエスカレーションする
+- **費用の発生・外部への送信や公開・データの削除・契約や法的判断**に関わる操作は、必ず実行前に停止して私の承認を得る
+- 要件にないスコープの拡大（機能・調査範囲の追加）は「提案」として報告し、勝手に実行しない
+- 同じアプローチで2回失敗したら、方法自体を変えるか私に相談する
+- 情報が見つからない・確信が持てない場合は、それを正直に報告する。**取り繕った出力は最大の背信行為**とみなす
+
+## 制約・禁止事項
+${cons ? cons.split("、").map(c=>`- ${c}`).join("\n") : "- 特になし（ただし上記ガードレールは厳守）"}
+${unknowns.length ? `
+## 作業開始前に私に確認すべきこと
+以下は私がまだ決めていない項目です。**勝手に推測して進めず**、作業開始前の計画提示と合わせて、選択肢つきで私に質問してください。
+${unknowns.map(u=>`- ${u}`).join("\n")}` : ""}${researchPolicy}${companyOps}
+
+## 学習と改善（秘伝のタレ）
+作業中に得た教訓 -- ハマったポイント、私の好み・判断の傾向、有効だったやり方 -- は \`LESSONS.md\` に追記し、以後の全ての作業開始前に必ず参照させること。このファイルはチームの資産として育てる。
+
+## 進行ルール
+- 判断に迷う分岐点では、推測で進めず**選択肢＋あなたの推奨案**を挙げて私に確認すること
+- 各フェーズの完了時に、簡潔な進捗サマリーを報告すること
+- 専門家間で結論が対立した場合は、あなたが両論を併記して私に判断を仰ぐこと
+- 私への報告は結論から先に、簡潔に
+
+準備ができたら、まずタスク分解と \`PLAN.md\` の作成から始めてください。`;
+}
+
+/* --- Step 5: 結果 --- */
+function step5(){
+  const p = buildPrompt();
+  return `
+    <h2>🎉 指示書が完成しました</h2>
+    <p class="lead">これをコピーして、${ENVS.find(e=>e.id===state.env).name} にそのまま貼り付けてください。<br>メインエージェントがマネージャーとなり、チームを編成して動き始めます。</p>
+    <div class="result-actions">
+      <button class="btn-next" onclick="copyPrompt()">📋 コピー</button>
+      <button class="btn-back" onclick="downloadPrompt()">💾 .md で保存</button>
+      <button class="btn-back" onclick="go(2)">✏️ 回答を修正</button>
+      <button class="btn-back" onclick="restart()">🔄 最初から</button>
+    </div>
+    <pre id="prompt-out">${esc(p)}</pre>`;
+}
+window.copyPrompt = function(){
+  navigator.clipboard.writeText(buildPrompt()).then(()=>{
+    const t = $("#toast"); t.classList.add("show");
+    setTimeout(()=>t.classList.remove("show"), 1800);
+  });
+};
+window.downloadPrompt = function(){
+  const blob = new Blob([buildPrompt()], {type:"text/markdown"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (state.title.trim() || "agent-team-mission") + ".md";
+  a.click(); URL.revokeObjectURL(a.href);
+};
+window.restart = function(){
+  Object.assign(state,{step:0,idea:"",cat:null,answers:{},deliverable:{chips:[],free:""},audience:"",success:"",constraints:{chips:[],free:""},autonomy:"checkpoint",team:[],env:"claude",title:""});
+  render();
+};
+
+render();
+</script>
+</body>
+<!-- v2: research-hardened templates -->
+</html>
